@@ -1,13 +1,13 @@
 /**
- * Outils Node pour vérifier une clé temporaire sans aucune dépendance : adresse Solana (base58) de la
- * paire ed25519 issue d'une graine. Équivaut à Keypair.fromSeed(seed).publicKey.toBase58() de
+ * Dependency-free Node helpers to check a temporary key: the Solana address (base58) of the ed25519 key
+ * pair generated from a seed. Equivalent to Keypair.fromSeed(seed).publicKey.toBase58() in
  * @solana/web3.js.
  */
 import { createPrivateKey, createPublicKey } from "node:crypto";
 
 const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
-/** Encodage base58 (alphabet Bitcoin, celui des adresses Solana). */
+/** Base58 encoding (Bitcoin alphabet, the one used by Solana addresses). */
 export function base58(bytes: Uint8Array): string {
   let value = 0n;
   for (const byte of bytes) value = value * 256n + BigInt(byte);
@@ -23,14 +23,14 @@ export function base58(bytes: Uint8Array): string {
   return out;
 }
 
-/** Clé privée ed25519 (format Node) à partir d'une graine de 32 octets. */
+/** ed25519 private key (Node format) from a 32-byte seed. */
 export function privateKeyFromSeed(seed: Uint8Array) {
-  if (seed.length !== 32) throw new Error("Une graine ed25519 fait 32 octets");
+  if (seed.length !== 32) throw new Error("An ed25519 seed is 32 bytes long");
   const der = Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), Buffer.from(seed)]);
   return createPrivateKey({ key: der, format: "der", type: "pkcs8" });
 }
 
-/** Adresse Solana de la paire ed25519 issue de `seed`. */
+/** Solana address of the ed25519 key pair generated from `seed`. */
 export function addressFromSeed(seed: Uint8Array): string {
   const jwk = createPublicKey(privateKeyFromSeed(seed)).export({ format: "jwk" });
   return base58(Buffer.from(String(jwk.x), "base64url"));

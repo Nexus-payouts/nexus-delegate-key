@@ -1,7 +1,7 @@
 {
   "name": "nexus-delegate-key",
   "version": "1.0.0",
-  "description": "Dérivation de la clé temporaire de Nexus (distribution de paiements sur Solana) : code de référence, tests et outil de vérification.",
+  "description": "Derivation of the Nexus temporary key (payment distribution on Solana): reference code, tests and verification tool.",
   "license": "MIT",
   "type": "module",
   "private": true,

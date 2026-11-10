@@ -1,12 +1,12 @@
 /**
- * Recalcule l'adresse de la clé temporaire d'une campagne à partir de la signature du wallet.
+ * Re-computes the address of a campaign's temporary key from the wallet's signature.
  *
- *   node verify.ts <wallet> <référence de campagne> <devnet|mainnet-beta> <signature en base64>
+ *   node verify.ts <wallet> <campaign reference> <devnet|mainnet-beta> <base64 signature>
  *
- * La signature s'obtient en faisant signer par votre wallet le message affiché par
- *   node verify.ts --message <wallet> <référence> <réseau>
- * L'adresse obtenue doit être celle indiquée par Nexus pour la campagne (« Clé déléguée »).
- * Attention : quiconque détient cette signature peut recréer la clé. Ne la partagez avec personne.
+ * To get the signature, have your wallet sign the message printed by
+ *   node verify.ts --message <wallet> <reference> <network>
+ * The resulting address must be the one Nexus shows for the campaign ("Delegate key").
+ * Warning: anyone holding this signature can re-create the key. Never share it.
  */
 import { delegateMessage, delegateSeed } from "./src/delegate-key.ts";
 import { addressFromSeed } from "./src/public-key.ts";
@@ -19,6 +19,8 @@ if (args[0] === "--message" && args.length === 4) {
   const seed = await delegateSeed(signature);
   console.log(addressFromSeed(seed));
 } else {
-  console.error("Usage :\n  node verify.ts --message <wallet> <référence> <devnet|mainnet-beta>\n  node verify.ts <wallet> <référence> <devnet|mainnet-beta> <signature base64>");
+  console.error(
+    "Usage:\n  node verify.ts --message <wallet> <reference> <devnet|mainnet-beta>\n  node verify.ts <wallet> <reference> <devnet|mainnet-beta> <base64 signature>",
+  );
   process.exit(2);
 }

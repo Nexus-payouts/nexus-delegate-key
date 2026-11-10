@@ -1,22 +1,24 @@
 /**
- * Dérivation de la clé temporaire (« clé déléguée ») de Nexus — code publié en open source.
+ * Derivation of the Nexus temporary key ("delegate key") — published as open source:
+ * https://github.com/Nexus-payouts/nexus-delegate-key
  *
- * Principe : le wallet de l'utilisateur signe un message fixe, propre à une campagne. La clé temporaire
- * est tirée de cette signature : graine = SHA-256(signature), puis paire de clés ed25519 issue de cette
- * graine (Keypair.fromSeed de @solana/web3.js, ou toute bibliothèque ed25519 standard).
+ * Principle: the user's wallet signs a fixed, per-campaign message. The temporary key is derived from that
+ * signature: seed = SHA-256(signature), then the ed25519 key pair generated from that seed
+ * (Keypair.fromSeed in @solana/web3.js, or any standard ed25519 library).
  *
- *  - La signature ed25519 est déterministe (RFC 8032) : même wallet + même message = même signature,
- *    donc même clé. Elle peut être recréée plus tard, sans être stockée nulle part.
- *  - La clé n'est calculée que dans le navigateur ; ni la signature ni la clé ne sont envoyées au serveur.
+ *  - ed25519 signatures are deterministic (RFC 8032): same wallet + same message = same signature, hence
+ *    the same key. It can be re-created later without ever being stored.
+ *  - The key is only computed in the browser; neither the signature nor the key is sent to the server.
  *
- * Ce fichier n'a aucune dépendance (Web Crypto seulement) et n'utilise que des types TypeScript
- * effaçables : il s'exécute tel quel dans le navigateur, dans Node ≥ 22.18 et dans Deno.
+ * This file has no dependencies (Web Crypto only) and only uses erasable TypeScript syntax: it runs as-is
+ * in the browser, in Node ≥ 22.18 and in Deno.
  *
- * NE PAS MODIFIER le texte du message (ni le traduire) : la clé de chaque campagne en dépend. Le
- * changer empêcherait de recréer les clés des campagnes passées, et donc d'en récupérer les fonds restants.
+ * DO NOT CHANGE the text of the message (and do not translate it): every campaign's key depends on it.
+ * Changing it would make the keys of past campaigns impossible to re-create, and their leftover funds
+ * impossible to recover.
  */
 
-/** Message signé par le wallet pour une campagne. `cluster` : "devnet" ou "mainnet-beta". */
+/** Message signed by the wallet for a campaign. `cluster`: "devnet" or "mainnet-beta". */
 export function delegateMessage(wallet: string, ref: string, cluster: string): string {
   return [
     "Nexus — clé déléguée",
@@ -30,13 +32,13 @@ export function delegateMessage(wallet: string, ref: string, cluster: string): s
   ].join("\n");
 }
 
-/** Octets UTF-8 du message, tels que le wallet les signe. */
+/** UTF-8 bytes of the message, as the wallet signs them. */
 export function delegateMessageBytes(wallet: string, ref: string, cluster: string): Uint8Array {
   return new TextEncoder().encode(delegateMessage(wallet, ref, cluster));
 }
 
-/** Graine de la clé temporaire : SHA-256 de la signature (64 octets) du message par le wallet. */
+/** Seed of the temporary key: SHA-256 of the wallet's signature (64 bytes) of the message. */
 export async function delegateSeed(signature: Uint8Array): Promise<Uint8Array> {
-  if (signature.length !== 64) throw new Error("Une signature ed25519 fait 64 octets");
+  if (signature.length !== 64) throw new Error("An ed25519 signature is 64 bytes long");
   return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", signature as BufferSource));
 }

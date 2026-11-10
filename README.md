@@ -1,87 +1,71 @@
 # nexus-delegate-key
 
-Code de référence de la **clé temporaire** de [Nexus](https://nexuspayouts.com), l'outil de distribution de
-paiements SOL / USDC sur Solana. C'est exactement le code qu'exécute l'application : un test de Nexus
-vérifie, à chaque modification, que ce fichier est identique au sien.
+Reference code for the **temporary key** of [Nexus](https://nexuspayouts.com), the tool that distributes
+SOL / USDC payments on Solana. This is exactly the code the app runs: a Nexus test checks, at every change,
+that this file is identical to its own.
 
-*English summary below.*
+## What the temporary key is for
 
-## À quoi sert la clé temporaire
+A Nexus distribution needs several transactions per batch of 20 recipients, and they expire in under a
+minute. Rather than having you approve each of them in your wallet, Nexus creates a **temporary key**, specific
+to the campaign, that signs them in your browser. You send it the funds of the distribution in a single
+transfer; it hands them to MultiHopper's programs, then gives you back what is left.
 
-Une distribution Nexus demande plusieurs transactions par lot de 20 destinataires. Pour ne pas vous faire
-approuver chacune dans votre wallet, Nexus crée une **clé temporaire**, propre à la campagne, qui les signe
-dans votre navigateur. Vous y envoyez les fonds de la distribution ; elle les remet aux programmes de
-MultiHopper, puis vous rend le solde.
+## How it is computed
 
-## Comment elle est calculée
+1. Your wallet signs a fixed message containing your address, the campaign reference and the network
+   (`delegateMessage` in [`src/delegate-key.ts`](src/delegate-key.ts)).
+2. **Seed** = SHA-256 of that 64-byte signature (`delegateSeed`).
+3. **Key** = the ed25519 key pair generated from that seed (`Keypair.fromSeed(seed)` in `@solana/web3.js`).
 
-1. Votre wallet signe un message fixe qui contient votre adresse, la référence de la campagne et le réseau
-   (`delegateMessage` dans [`src/delegate-key.ts`](src/delegate-key.ts)).
-2. **Graine** = SHA-256 de cette signature de 64 octets (`delegateSeed`).
-3. **Clé** = paire ed25519 issue de cette graine (`Keypair.fromSeed(graine)` dans `@solana/web3.js`).
+Consequences:
 
-Conséquences :
+- **Deterministic**: ed25519 signatures are deterministic (RFC 8032). The same wallet and the same campaign
+  always give the same key. It is therefore never stored, and can be re-created later.
+- **Local**: the signature and the key never leave your browser. The Nexus server only sees the key's public
+  address.
+- **One key per campaign**: another campaign reference gives another key.
 
-- **Déterministe** : la signature ed25519 est déterministe (RFC 8032). Même wallet + même campagne donnent
-  toujours la même clé. Elle n'est donc stockée nulle part, et peut être recréée plus tard.
-- **Locale** : la signature et la clé ne quittent jamais votre navigateur. Le serveur de Nexus ne voit que
-  l'adresse publique de la clé.
-- **Une clé par campagne** : une autre référence de campagne donne une autre clé.
+The signed message is in French on purpose and must never be translated or changed: every key depends on its
+exact text, and changing it would make past campaigns' keys impossible to re-create.
 
-## Vérifier vous-même
+## Check it yourself
 
-Node.js ≥ 22.18, aucune dépendance :
+Node.js ≥ 22.18, no dependencies:
 
 ```bash
-npm test                                    # vecteur de référence + propriétés
-node verify.ts --message <wallet> <référence> <devnet|mainnet-beta>
-node verify.ts <wallet> <référence> <devnet|mainnet-beta> <signature base64>
+npm test                                    # reference vector + properties
+node verify.ts --message <wallet> <reference> <devnet|mainnet-beta>
+node verify.ts <wallet> <reference> <devnet|mainnet-beta> <base64 signature>
 ```
 
-La première commande `verify.ts` affiche le message à faire signer ; la seconde recalcule l'adresse de la clé,
-qui doit être celle affichée par Nexus pour la campagne (« Clé déléguée »).
+The first `verify.ts` command prints the message to sign; the second re-computes the key's address, which must
+match the one Nexus shows for the campaign ("Delegate key").
 
-## Récupérer des fonds sans Nexus
+## Recovering funds without Nexus
 
-Si Nexus n'était plus disponible, vous pourriez recréer la clé de vos campagnes et en retirer ce qui reste
-(loyers rendus par MultiHopper, reliquats) avec n'importe quel outil Solana :
+If Nexus were no longer available, you could re-create the key of your campaigns and withdraw what is left on
+them (rent returned by MultiHopper, leftovers) with any Solana tool:
 
 ```js
-import { Connection, Keypair, SystemProgram, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js";
 import { delegateMessageBytes, delegateSeed } from "./src/delegate-key.ts";
 
 const signature = await wallet.signMessage(delegateMessageBytes(walletAddress, ref, "mainnet-beta"));
 const key = Keypair.fromSeed(await delegateSeed(signature));
-// Ensuite : transférer le solde de key.publicKey vers votre wallet (et fermer son compte USDC s'il existe).
+// Then: transfer key.publicKey's balance to your wallet (and close its USDC account if it has one).
 ```
 
-## Risques résiduels
+## Residual risks
 
-- **Hameçonnage** : le message ne contient pas l'adresse du site. Un faux site qui vous ferait signer
-  exactement ce texte obtiendrait la clé, et pourrait prendre ce qu'elle détient à ce moment-là. Ne signez
-  ce message que sur `nexuspayouts.com` (votre wallet affiche le site qui le demande). Les fonds ne restent
-  sur la clé que le temps d'une distribution, plus de petits loyers rendus ensuite.
-- **Navigateur compromis** : pendant une distribution, la clé est en mémoire dans la page. Une extension
-  malveillante ou un poste infecté pourrait la lire.
-- **Signature partagée** : quiconque obtient la signature peut recréer la clé. Ne la communiquez jamais.
+- **Phishing**: the message does not contain the site's address. A fake site that got you to sign this exact
+  text would obtain the key, and could take whatever it holds at that moment. Only sign this message on
+  `nexuspayouts.com` (your wallet shows which site is asking). Funds only stay on the key for the duration of
+  a distribution, plus small rent returned afterwards.
+- **Compromised browser**: during a distribution, the key is in the page's memory. A malicious extension or an
+  infected computer could read it.
+- **Shared signature**: anyone who obtains the signature can re-create the key. Never share it.
 
-## Licence
+## License
 
-MIT, voir [LICENSE](LICENSE).
-
----
-
-## English summary
-
-Reference code for the Nexus **temporary key**, the per-campaign key that signs distribution transactions in
-your browser so you don't approve each one in your wallet. It is the exact code the app runs (a Nexus test
-checks this file is identical to its own).
-
-**Derivation:** your wallet signs a fixed message (your address, the campaign reference, the network);
-seed = SHA-256(64-byte signature); key = ed25519 keypair from that seed (`Keypair.fromSeed`). ed25519
-signatures are deterministic, so the key is never stored and can be re-created later; it never leaves your
-browser. Run `npm test` (Node ≥ 22.18, no dependencies) and `node verify.ts` to check it yourself.
-
-**Residual risks:** the message does not contain the site's address, so a phishing site that gets you to sign
-this exact text would obtain the key and whatever it holds at that moment; only sign it on `nexuspayouts.com`.
-A compromised browser could read the key during a distribution. Never share the signature.
+MIT, see [LICENSE](LICENSE).

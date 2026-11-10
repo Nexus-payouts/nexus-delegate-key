@@ -4,7 +4,8 @@ import { test } from "node:test";
 import { delegateMessage, delegateMessageBytes, delegateSeed } from "../src/delegate-key.ts";
 import { addressFromSeed, privateKeyFromSeed } from "../src/public-key.ts";
 
-// Vecteur de référence, identique à celui de l'application Nexus.
+// Reference vector, identical to the one in the Nexus app. The message stays in French on purpose:
+// it is the exact text wallets sign, and every key depends on it.
 const VECTOR = {
   walletSeed: new Uint8Array(32).fill(7),
   wallet: "GmaDrppBC7P5ARKV8g3djiwP89vz1jLK23V2GBjuAEGB",
@@ -19,11 +20,11 @@ const VECTOR = {
   delegate: "E4MCkeJTMo43U5vU15aL1dCdv9XEeEsPs5NvjLKJzHkp",
 };
 
-test("le message est exactement celui que signe le wallet dans Nexus", () => {
+test("the message is exactly the one the wallet signs in Nexus", () => {
   assert.equal(delegateMessage(VECTOR.wallet, VECTOR.ref, VECTOR.cluster), VECTOR.message);
 });
 
-test("signature → graine → adresse de la clé temporaire", async () => {
+test("signature → seed → temporary key address", async () => {
   assert.equal(addressFromSeed(VECTOR.walletSeed), VECTOR.wallet);
   const signature = sign(null, Buffer.from(delegateMessageBytes(VECTOR.wallet, VECTOR.ref, VECTOR.cluster)), privateKeyFromSeed(VECTOR.walletSeed));
   assert.equal(signature.toString("base64"), VECTOR.signature);
@@ -32,7 +33,7 @@ test("signature → graine → adresse de la clé temporaire", async () => {
   assert.equal(addressFromSeed(seed), VECTOR.delegate);
 });
 
-test("même wallet et même campagne : même clé ; autre campagne : autre clé", async () => {
+test("same wallet and same campaign: same key; another campaign: another key", async () => {
   const key = privateKeyFromSeed(VECTOR.walletSeed);
   const derive = async (ref: string) =>
     addressFromSeed(await delegateSeed(new Uint8Array(sign(null, Buffer.from(delegateMessageBytes(VECTOR.wallet, ref, "devnet")), key))));
@@ -40,6 +41,6 @@ test("même wallet et même campagne : même clé ; autre campagne : autre clé"
   assert.notEqual(await derive("nx-a"), await derive("nx-b"));
 });
 
-test("une signature de mauvaise taille est refusée", async () => {
+test("a signature of the wrong length is rejected", async () => {
   await assert.rejects(delegateSeed(new Uint8Array(32)));
 });
